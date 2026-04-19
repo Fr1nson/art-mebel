@@ -1,0 +1,112 @@
+-- Core schema only (no seed data)
+CREATE DATABASE IF NOT EXISTS premium_furniture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE premium_furniture;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  is_admin TINYINT(1) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  phone VARCHAR(50) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  slug VARCHAR(80) NOT NULL UNIQUE,
+  image TEXT NOT NULL,
+  description TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS products (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  slug VARCHAR(150) NOT NULL UNIQUE,
+  price INT UNSIGNED NOT NULL,
+  description TEXT NOT NULL,
+  material VARCHAR(120) NOT NULL,
+  color VARCHAR(120) NOT NULL,
+  style VARCHAR(120) NOT NULL,
+  category VARCHAR(80) NOT NULL,
+  images_json JSON NOT NULL,
+  rating DECIMAL(3,2) NOT NULL DEFAULT 0.00,
+  in_stock TINYINT(1) NOT NULL DEFAULT 1,
+  stock_qty INT UNSIGNED NOT NULL DEFAULT 0,
+  dimensions VARCHAR(255) NULL,
+  INDEX idx_products_category (category),
+  INDEX idx_products_slug (slug),
+  INDEX idx_products_rating (rating)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  product_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NULL,
+  user_name VARCHAR(120) NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,
+  comment TEXT NOT NULL,
+  date DATE NOT NULL,
+  CONSTRAINT chk_reviews_rating CHECK (rating >= 1 AND rating <= 5),
+  CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_reviews_product (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NULL,
+  customer_name VARCHAR(160) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(50) NOT NULL,
+  address_json JSON NOT NULL,
+  total INT UNSIGNED NOT NULL,
+  shipping INT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(40) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_orders_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id INT UNSIGNED NOT NULL,
+  product_id INT UNSIGNED NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  price INT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  limit_key VARCHAR(190) NOT NULL UNIQUE,
+  request_count INT UNSIGNED NOT NULL DEFAULT 0,
+  reset_at DATETIME NOT NULL,
+  INDEX idx_reset_at (reset_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type VARCHAR(64) NOT NULL,
+  recipient_email VARCHAR(255) NOT NULL,
+  payload_json JSON NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  sent_at TIMESTAMP NULL DEFAULT NULL,
+  INDEX idx_email_outbox_status_created (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS app_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  level VARCHAR(16) NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  message TEXT NOT NULL,
+  context_json JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_app_logs_level_created (level, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
